@@ -22,7 +22,6 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/keys/paypal', (req, res) => {
   res.send(process.env.PAYPAL_CLIENT_ID || 'sb');
 });
-app.use('/api/upload', uploadRouter);
 
 //USer
 app.use('/api/orders', orderRouter);

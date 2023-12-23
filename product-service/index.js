@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import seedRouter from './seedRoutes.js';
 import productRouter from './productRoutes.js';
+import uploadRouter from './uploadRoutes.js';
 
 dotenv.config();
 mongoose
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 //
 app.use('/api/seed', seedRouter);
 app.use('/api/products', productRouter);
+app.use('/api/upload', uploadRouter);
 
 //USer
 

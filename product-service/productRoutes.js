@@ -4,7 +4,6 @@ import expressAsyncHandler from 'express-async-handler';
 const productRouter = express.Router();
 import { isAuth, isAdmin } from './utils.js';
 import amqp from 'amqplib';
-import { decode } from 'jsonwebtoken';
 
 const amqpserver =
   'amqps://psavqxur:Wi_ATNNJ0v5rq-6fIoQlAKWQMYlfO5IG@octopus.rmq3.cloudamqp.com/psavqxur';
@@ -26,58 +25,55 @@ productRouter.post(
   isAuth,
   isAdmin,
   expressAsyncHandler(async (req, res) => {
-    // const newProduct = new Product({
-    //   name: 'sample name ' + Date.now(),
-    //   slug: 'sample-name-' + Date.now(),
-    //   image: '/images/p1.jpg',
-    //   price: 0,
-    //   category: 'sample category',
-    //   brand: 'sample brand',
-    //   countInStock: 0,
-    //   rating: 0,
-    //   numReviews: 0,
-    //   description: 'sample description',
-    // });
-    // const product = await newProduct.save();
-    // res.send({ message: 'Product Created', product });
-    const {
-      name,
-      slug,
-      image,
-      price,
-      category,
-      brand,
-      countInStock,
-      rating,
-      numReviews,
-      description,
-    } = req.body;
+    const newProduct = new Product({
+      name: 'fill out name ' + Date.now(),
+      slug: 'sample-name-' + Date.now(),
+      image: '/images/p1.jpg',
+      price: 0,
+      category: 'sample category',
+      brand: 'sample brand',
+      countInStock: 0,
+      rating: 0,
+      numReviews: 0,
+      description: 'sample description',
+    });
+    const product = await newProduct.save();
+    res.send({ message: 'Product Created', product });
+    //   const {
+    //     name,
+    //     slug,
+    //     image,
+    //     price,
+    //     category,
+    //     brand,
+    //     countInStock,
+    //     rating,
+    //     numReviews,
+    //     description,
+    //   } = req.body;
 
-    try {
-      const creProduct = new Product({
-        name,
-        slug,
-        image,
-        price,
-        category,
-        brand,
-        countInStock,
-        rating,
-        numReviews,
-        description,
-      });
+    //   try {
+    //     const newProduct = new Product({
+    //       name,
+    //       slug,
+    //       image,
+    //       price,
+    //       category,
+    //       brand,
+    //       countInStock,
+    //       rating,
+    //       numReviews,
+    //       description,
+    //     });
 
-      const savedProduct = await creProduct.save();
+    //     const product = await newProduct.save();
 
-      return res.json({
-        message: 'Product created successfully',
-        product: savedProduct,
-      });
-    } catch (error) {
-      return res
-        .status(500)
-        .json({ message: 'Internal Server Error', error: error.message });
-    }
+    //     res.send({ message: 'Product Created', product });
+    //   } catch (error) {
+    //     return res
+    //       .status(500)
+    //       .json({ message: 'Internal Server Error', error: error.message });
+    //   }
   })
 );
 productRouter.post(
@@ -96,14 +92,13 @@ productRouter.post(
       //$ in la toan tu tim kiem cua mongodb
       _id: { $in: ids },
     });
-    console.log('check token', decode);
     //day qua order service
     channel.sendToQueue(
       'ORDER_PRODUCT',
       Buffer.from(
         JSON.stringify({
           products,
-          email: decode.email,
+          email: req.user.email,
         })
       )
     );
