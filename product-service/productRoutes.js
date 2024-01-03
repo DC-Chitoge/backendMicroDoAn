@@ -21,7 +21,7 @@ productRouter.get('/', async (req, res) => {
   res.send(products);
 });
 productRouter.post(
-  '/create',
+  '/',
   isAuth,
   isAdmin,
   expressAsyncHandler(async (req, res) => {
