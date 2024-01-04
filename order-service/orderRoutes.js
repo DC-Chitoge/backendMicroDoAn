@@ -5,21 +5,22 @@ import Order from './orderModel.js';
 // import Product from './productModel.js';
 import { isAuth, isAdmin } from './utils.js';
 import amqp from 'amqplib';
+// import { publishMessage, consumeMessage } from './messageBroker.js';
 
 const amqpserver =
   'amqps://psavqxur:Wi_ATNNJ0v5rq-6fIoQlAKWQMYlfO5IG@octopus.rmq3.cloudamqp.com/psavqxur';
 //connect amqp
 var channel, connection;
-async function connect_amqp() {
-  connection = await amqp.connect(amqpserver);
-  channel = await connection.createChannel();
-  await channel.assertQueue('ORDER_PRODUCT');
-}
-connect_amqp().then(() => {
-  channel.consume('ORDER_PRODUCT', (data) => {
-    console.log('co nguoi mua hang r anh em', JSON.parse(data.content));
-  });
-});
+// async function connect_amqp() {
+// connection = await amqp.connect(amqpserver);
+// channel = await connection.createChannel();
+// await channel.assertQueue('orders');
+// }
+// connect_amqp().then(() => {
+//   channel.consume('ORDER_PRODUCT', (data) => {
+//     console.log('co nguoi mua hang r anh em', JSON.parse(data.content));
+//   });
+// });
 const orderRouter = express.Router();
 orderRouter.get(
   '/',
@@ -35,19 +36,53 @@ orderRouter.post(
   '/',
   isAuth,
   expressAsyncHandler(async (req, res) => {
-    const newOrder = new Order({
-      orderItems: req.body.orderItems.map((x) => ({ ...x, product: x._id })),
-      shippingAddress: req.body.shippingAddress,
-      paymentMethod: req.body.paymentMethod,
-      itemsPrice: req.body.itemsPrice,
-      shippingPrice: req.body.shippingPrice,
-      taxPrice: req.body.taxPrice,
-      totalPrice: req.body.totalPrice,
-      user: req.user._id,
-    });
-
-    const order = await newOrder.save();
-    res.status(201).send({ message: 'New Order Created', order });
+    try {
+      connection = await amqp.connect(amqpserver);
+      console.log('connected to rabbitMq');
+      channel = await connection.createChannel();
+      await channel.assertQueue('orders');
+      channel.consume('orders', async (data) => {
+        console.log('da nhan duoc hang!');
+        const { products, email, orderId } = JSON.parse(data.content);
+        const newOrder = new Order({
+          orderItems: products.map((product) => ({
+            product: {
+              name: product.name,
+              slug: product.slug,
+              image: product.image,
+              brand: product.brand,
+              category: product.category,
+              description: product.description,
+              price: product.price,
+              countInStock: product.countInStock,
+              rating: product.rating,
+              numReviews: product.numReviews,
+            },
+            quantity: product.quantity, // Assuming you have quantity information in your product data
+          })),
+          email: email, // Assuming user._id is the reference to the user in your database
+          orderId: orderId, // Set the order ID from the queue
+        });
+        const order = await newOrder.save();
+        res.status(201).send({ message: 'New Order Created', order });
+        const {
+          email: savedEmail,
+          products: savedProducts,
+          totalPrice,
+        } = newOrder.toJSON();
+        channel.sendToQueue(
+          'products',
+          Buffer.from(
+            JSON.stringify({
+              orderId,
+              email: savedEmail,
+              products: savedProducts,
+              totalPrice,
+            })
+          )
+        );
+      });
+    } catch (error) {}
   })
 );
 orderRouter.get(

@@ -2,7 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import orderRouter from './orderRoutes.js';
-import uploadRouter from './uploadRoutes.js';
 
 dotenv.config();
 mongoose

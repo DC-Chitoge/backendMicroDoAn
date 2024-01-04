@@ -3,18 +3,10 @@ import Product from './productModel.js';
 import expressAsyncHandler from 'express-async-handler';
 const productRouter = express.Router();
 import { isAuth, isAdmin } from './utils.js';
-import amqp from 'amqplib';
-
-const amqpserver =
-  'amqps://psavqxur:Wi_ATNNJ0v5rq-6fIoQlAKWQMYlfO5IG@octopus.rmq3.cloudamqp.com/psavqxur';
-//connect amqp
-var channel, connection;
-async function connect_amqp() {
-  connection = await amqp.connect(amqpserver);
-  channel = await connection.createChannel();
-  await channel.assertQueue('BUY_PRODUCT');
-}
-connect_amqp();
+import { v4 as uuidv4 } from 'uuid';
+import { publishMessage, consumeMessage } from './messageBroker.js';
+uuidv4();
+const ordersMap = new Map();
 
 productRouter.get('/', async (req, res) => {
   const products = await Product.find();
@@ -39,41 +31,6 @@ productRouter.post(
     });
     const product = await newProduct.save();
     res.send({ message: 'Product Created', product });
-    //   const {
-    //     name,
-    //     slug,
-    //     image,
-    //     price,
-    //     category,
-    //     brand,
-    //     countInStock,
-    //     rating,
-    //     numReviews,
-    //     description,
-    //   } = req.body;
-
-    //   try {
-    //     const newProduct = new Product({
-    //       name,
-    //       slug,
-    //       image,
-    //       price,
-    //       category,
-    //       brand,
-    //       countInStock,
-    //       rating,
-    //       numReviews,
-    //       description,
-    //     });
-
-    //     const product = await newProduct.save();
-
-    //     res.send({ message: 'Product Created', product });
-    //   } catch (error) {
-    //     return res
-    //       .status(500)
-    //       .json({ message: 'Internal Server Error', error: error.message });
-    //   }
   })
 );
 productRouter.post(
@@ -92,17 +49,29 @@ productRouter.post(
       //$ in la toan tu tim kiem cua mongodb
       _id: { $in: ids },
     });
+    const orderId = uuidv4();
+    ordersMap.set(orderId, {
+      status: 'pending',
+      products,
+      email: req.user.email,
+    });
     //day qua order service
-    channel.sendToQueue(
-      'ORDER_PRODUCT',
-      Buffer.from(
-        JSON.stringify({
-          products,
-          email: req.user.email,
-        })
-      )
-    );
-    return res.json({ message: products });
+    publishMessage('orders', {
+      products,
+      email: req.user.email,
+      orderId,
+    });
+    consumeMessage('products', (data) => {
+      const orderData = JSON.parse(JSON.stringify(data));
+      const { orderId } = orderData;
+      const order = ordersMap.get(orderId);
+      if (order) {
+        // update the order in the map
+        ordersMap.set(orderId, { ...order, ...orderData, status: 'completed' });
+        console.log('Updated order:', order);
+      }
+    });
+    return res.json({ message: products, orderId });
   })
 );
 productRouter.put(
